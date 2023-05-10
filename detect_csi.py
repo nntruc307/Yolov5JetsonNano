@@ -190,6 +190,7 @@ while True:
         speed_limit_signs.append(obj['class'])
         sign_start_time = time.time()
     # print(sign_start_time)
+    # print(t)
     if len(speed_limit_signs) > 0:
         if (time.time() - sign_start_time) > gap_time_count: # Reset the buffer if during gap time not detect any signs
             speed_limit_signs = []
