@@ -18,7 +18,7 @@ def gstreamer_pipeline(
     display_width=1920,
     display_height=1080,
     framerate=30,
-    flip_method=2,
+    flip_method=0,
 ):
     return (
         "nvarguscamerasrc ! "
@@ -178,12 +178,12 @@ count_threh = 5 # Variable to define number of detect to recognize
 # Global variable define================================
 
 model = YoloV5TRT(library = "yolov5/build/libmyplugins.so", engine = "TSD_6_640.engine", conf = 0.7)
-cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER) # Stream video from CSI camera
-# cap = cv2.VideoCapture("TSD_Video_2.mp4") # Stream video from source video
+# cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER) # Stream video from CSI camera
+cap = cv2.VideoCapture("TSD_Video_3.mp4") # Stream video from source video
 window_title = "Traffic Signs Detection" # Set window title
 window_width = 1440 # Display window with specific Width
 window_height = 810 # Display window with specific height
-frame_width = 960 # 
+frame_width = 960 # Catched frame width from streaming
 
 while True:
     ret, frame = cap.read()
@@ -207,7 +207,7 @@ while True:
     # print(max_speed_limited) # Print max speed limit buffer
     max_spd_text = "Max speed limited: " + str(max_speed_limited[-1])
     cv2.putText(frame, max_spd_text, (30, 390), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-    # print(max_spd_text)
+    print(max_spd_text)
     min_spd_text = "Min speed limited: " + str(min_speed_limited[-1])
     cv2.putText(frame, min_spd_text, (30, 430), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
     # print(min_spd_text)
@@ -217,7 +217,7 @@ while True:
     # print(veh_spd_fr_can) # Print vehicle speed from CAN buffer
     current_veh_spd = veh_spd_fr_can[-1]
     veh_spd_disp = "Current Vehicle Speed: {:.0f}".format(current_veh_spd)
-    # print(veh_spd_disp)
+    print(veh_spd_disp)
     # Put current vehicle speed to display window
     cv2.putText(frame, veh_spd_disp, (30, 470), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
