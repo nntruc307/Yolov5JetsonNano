@@ -1,0 +1,22 @@
+# Generate WTS file 
+python3 gen_wts.py -w TSD_5.pt -o TSD_5.wts
+
+# Cmake & Make 
+# If using custom model, make sure to update kNumClas in yolov5/src/config.h
+cd yolov5/
+mkdir build
+cd build
+cp ../../yolov5s.wts .
+cp ../../TSD_6.wts .
+cmake ..
+make 
+
+# Build engine
+./yolov5_det -s yolov5s.wts yolov5s.engine s
+
+./yolov5_det -s TSD_6.wts TSD_6_640.engine s
+./yolov5_det -s TSD_320.wts TSD_320.engine s
+
+# Test
+./yolov5_det -d yolov5s.engine ../images
+
