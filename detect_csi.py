@@ -6,6 +6,7 @@ from yolov5Det import YoloV5TRT
 import serial
 import Jetson.GPIO as GPIO
 import threading
+import numpy as np
 
 # gstreamer_pipeline returns a GStreamer pipeline for capturing from the CSI camera
 # Defaults to 1920x1080 @ 30fps
@@ -69,38 +70,24 @@ def sign_catch(list_det, thresh): # List of detected signs, thresh is the minimu
         return ""
     detected_sign = sorted(filtered_dict, key=lambda x: priority_list.index(x)) # Sort the speed limit signs following priority list
 
-    if "SL " in detected_sign[0] and "SL 120" not in detected_sign[0]: # Maximum speed limit in case detected Speed Limit Signs
-        max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
-        min_speed_limited.append(0)
-    elif "SL " in detected_sign[0] and "SL 100" not in detected_sign[0]: # Maximum speed limit in case detected Speed Limit Signs
-        max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
-        min_speed_limited.append(0)
-    elif "SL " in detected_sign[0] and "SL 120" in detected_sign[0]:
-        max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
-        # min_speed_limited.append(int(detected_sign[0].replace("SM ","")))
-        min_speed_limited.append(60)
-    elif "SL " in detected_sign[0] and "SL 100" in detected_sign[0]:
-        max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
-        # min_speed_limited.append(int(detected_sign[0].replace("SM ","")))
-        min_speed_limited.append(60)
+    if "SL " in detected_sign[0]: # Maximum speed limit in case detected Speed Limit Signs
+        if "SL 120" in detected_sign[0] or "SL 100" in detected_sign[0]:
+            max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
+            min_speed_limited.append(60)
+        else:
+            max_speed_limited.append(int(detected_sign[0].replace("SL ","")))
+            min_speed_limited.append(0)
+
     elif "Start Res" in detected_sign[0]: # Maximum speed limit in case detected Start of Residential Area
         max_speed_limited.append(50)
-        # if max_speed_limited[-1] >= 60:
-        #     max_speed_limited.append(60)
-        # elif max_speed_limited[-1] < 60:
-        #     max_speed_limited.append(50)
+        min_speed_limited.append(0)
     elif "End Res" in detected_sign[0]: # Maximum speed limit in case detected End of Residential Area
         max_speed_limited.append(70)
-        # if max_speed_limited[-1] <= 70:
-        #     max_speed_limited.append(70)
-        # if max_speed_limited[-1] > 70:
-        #     max_speed_limited.append(80)
+        min_speed_limited.append(0)
     elif "End SL" in detected_sign[0]:
         max_speed_limited.append(max_speed_limited[-1] + 10)
-    # if "SM" in detected_sign[0]:
-    #     min_spd = 60
-    # if len(max_speed_limited) > 100:
-    #     max_speed_limited = max_speed_limited[-10:] # Trim the list to reduce memory
+        min_speed_limited.append(0)
+
     max_speed_limited = remove_duplicates_preserve_order(max_speed_limited)
     min_speed_limited = remove_duplicates_preserve_order(min_speed_limited)
 
@@ -144,22 +131,19 @@ def UART_Read():
 # Control LED function ======================================================================
 def control_led(mode):
     GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(33, GPIO.OUT)
+    GPIO.setup(33, GPIO.OUT) # Setup for pin 33
     
     if mode == "off":
         GPIO.output(33, GPIO.LOW)
     
-    elif mode == "slow_blink":
-        GPIO.output(33, GPIO.HIGH)
-        time.sleep(0.5)
-        GPIO.output(33, GPIO.LOW)
-        time.sleep(0.5)
+    # elif mode == "slow_blink":
+    #     GPIO.output(33, GPIO.HIGH)
+    #     time.sleep(0.5)
+    #     GPIO.output(33, GPIO.LOW)
+    #     time.sleep(0.5)
     
-    elif mode == "fast_blink":
+    elif mode == "on":
         GPIO.output(33, GPIO.HIGH)
-        time.sleep(0.01)
-        GPIO.output(33, GPIO.LOW)
-        time.sleep(0.01)
     
     GPIO.cleanup()
 
@@ -169,12 +153,12 @@ timer_interval = 1.0  # Interval in seconds
 veh_spd_fr_can = [0] # Buffer to storage vehicle speed from CAN
 fps_start_time = time.time() # Pre-define start time counting FPS
 fps_counter = 0 # Pre-define FPS counting vairable
-gap_time_count = 2 # Define gap time between each traffic signs were detected
+gap_time_count = 10 # Define gap time between each traffic signs were detected
 sign_start_time = time.time() 
 speed_limit_signs = [] # Buffer to storage traffic signs were detected. Will be reset if in gap time it does not detect any signs
 max_speed_limited = [50] # Buffer to storage maximum speed, first define 50kmh
 min_speed_limited = [0] # Buffer to storage minimum speed, first define 0kmh
-count_threh = 5 # Variable to define number of detect to recognize
+count_threh = 4 # Variable to define number of detect to recognize
 # Global variable define================================
 
 model = YoloV5TRT(library = "yolov5/build/libmyplugins.so", engine = "TSD_6_640.engine", conf = 0.7)
@@ -201,31 +185,62 @@ while True:
         if (time.time() - sign_start_time) > gap_time_count: # Reset the buffer if during gap time not detect any signs
             speed_limit_signs = []
             
+    x, y = 0, window_height - 370
+    width, height = window_width, 80
+
+    alpha = 0.6  # Transparency value (0.0 - fully transparent, 1.0 - fully opaque)
+
+    # Create a copy of the image
+    overlay = frame.copy()
+
+    # Draw a filled rectangle on the overlay image
+    cv2.rectangle(overlay, (x, y), (x + width, y + height), (250, 250, 250), -1)
+
+    # Apply the overlay onto the original image
+    frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
     # Get speed limit
     sign_catch(speed_limit_signs, thresh=count_threh)
     # print(max_speed_limited) # Print max speed limit buffer
-    max_spd_text = "Max speed limited: " + str(max_speed_limited[-1])
-    cv2.putText(frame, max_spd_text, (30, 390), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    max_spd_text = "Max Speed: " + str(max_speed_limited[-1]) + " km/h"
+    cv2.putText(frame, max_spd_text, (x+450, window_height - 340), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
     # print(max_spd_text)
-    min_spd_text = "Min speed limited: " + str(min_speed_limited[-1])
-    cv2.putText(frame, min_spd_text, (30, 430), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    min_spd_text = "Min Speed: " + str(min_speed_limited[-1]) + " km/h"
+    speed_limit_text = "Speed Limit: Min : " + str(min_speed_limited[-1]) + " km/h" 
+    cv2.putText(frame, min_spd_text, (x+10, window_height - 340), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
     # print(min_spd_text)
 
     # Read current vehicle speed from CAN
     UART_Read()
     # print(veh_spd_fr_can) # Print vehicle speed from CAN buffer
     current_veh_spd = veh_spd_fr_can[-1]
-    veh_spd_disp = "Current Vehicle Speed: {:.0f}".format(current_veh_spd)
+    veh_spd_disp = "Current Speed: {:.0f} km/h".format(current_veh_spd)
     # print(veh_spd_disp)
     # Put current vehicle speed to display window
-    cv2.putText(frame, veh_spd_disp, (30, 470), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    
 
+    
     # LED control
-    if current_veh_spd > float(max_speed_limited[-1]):
-        control_led("fast_blink")
+    if current_veh_spd >= (float(max_speed_limited[-1]) + 5):
+        control_led("on")
+        cv2.putText(frame, veh_spd_disp + " (Speed Too High!!!)", (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    elif (float(max_speed_limited[-1])) < current_veh_spd < (float(max_speed_limited[-1]) + 5):
+        control_led("on")
+        cv2.putText(frame, veh_spd_disp + " (Speed High)", (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 255), 2)
+
+    elif min_speed_limited[-1] == 60:
+        if current_veh_spd <= (float(min_speed_limited[-1]) - 5):
+            control_led("on")
+            cv2.putText(frame, veh_spd_disp + " (Speed Too Low!!!)", (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        elif (float(min_speed_limited[-1]) - 5) < current_veh_spd < (float(min_speed_limited[-1])):
+            control_led("on")
+            cv2.putText(frame, veh_spd_disp + " (Speed Low)", (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 255), 2)
+        else:
+            control_led("off")
+            cv2.putText(frame, veh_spd_disp, (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 128, 0), 2)
     else:
         control_led("off")
+        cv2.putText(frame, veh_spd_disp, (x+10, window_height - 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 128, 0), 2)
 
     #Calculate FPS
     fps_counter += 1
