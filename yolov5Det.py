@@ -103,7 +103,8 @@ class YoloV5TRT():
             det["conf"] = result_scores[j]
             det["box"] = box 
             det_res.append(det)
-            self.PlotBbox(box, img, label="{}:{:.2f}".format(self.categories[int(result_classid[j])], result_scores[j]),)
+            # self.PlotBbox(box, img, label="{}:{:.2f}".format(self.categories[int(result_classid[j])], result_scores[j]),)
+            self.PlotBbox(box, img, category=self.categories[int(result_classid[j])], label="{}:{:.1f}".format(self.categories[int(result_classid[j])], result_scores[j]))
         return det_res, t2-t1
 
     def PostProcess(self, output, origin_h, origin_w):
@@ -180,15 +181,44 @@ class YoloV5TRT():
 
         return iou
     
-    def PlotBbox(self, x, img, color=None, label=None, line_thickness=None):
+    # def PlotBbox(self, x, img, color=None, label=None, line_thickness=None):
+    #     tl = (line_thickness or round(0.001 * (img.shape[0] + img.shape[1]) / 2) + 1)  # line/font thickness
+    #     color = color or [random.randint(0, 255) for _ in range(3)]
+    #     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    #     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+    #     if label:
+    #         tf = max(tl - 1, 1)  # font thickness
+    #         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+    #         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+    #         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
+    #         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA,)
+    def PlotBbox(self, x, img, category=None, label=None, line_thickness=None):
         tl = (line_thickness or round(0.001 * (img.shape[0] + img.shape[1]) / 2) + 1)  # line/font thickness
-        color = color or [random.randint(0, 255) for _ in range(3)]
+        
+        # Define the color mapping for each category
+        category_colors = {
+            "End Res": (255, 0, 0),   # Red
+            "End SL": (0, 128, 0),    # Green
+            "SL 100": (0, 0, 255),    # Blue
+            "SL 120": (128, 128, 0),  # Yellow
+            "SL 50": (255, 0, 255),   # Magenta
+            "SL 60": (0, 128, 128),   # Cyan
+            "SL 70": (128, 128, 128), # Gray
+            "SL 80": (0, 0, 0),       # Black
+            "SM 60": (255, 128, 0),   # Orange
+            "Start Res": (255, 128, 128)  # White
+        }
+        
+        # Get the color for the category
+        color = category_colors.get(category, (255, 255, 255))  # Default to white if category is not found
+        
         c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
         cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+        
         if label:
             tf = max(tl - 1, 1)  # font thickness
             t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
             c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
             cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-            cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA,)
-        
+            cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+   
