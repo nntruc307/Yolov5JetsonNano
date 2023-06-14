@@ -82,10 +82,10 @@ def sign_catch(list_det, thresh): # List of detected signs, thresh is the minimu
         max_speed_limited.append(50)
         min_speed_limited.append(0)
     elif "End Res" in detected_sign[0]: # Maximum speed limit in case detected End of Residential Area
-        max_speed_limited.append(70)
+        max_speed_limited.append(80)
         min_speed_limited.append(0)
     elif "End SL" in detected_sign[0]:
-        max_speed_limited.append(max_speed_limited[-1] + 10)
+        max_speed_limited.append(max_speed_limited[-2])
         min_speed_limited.append(0)
 
     max_speed_limited = remove_duplicates_preserve_order(max_speed_limited)
@@ -156,7 +156,7 @@ fps_counter = 0 # Pre-define FPS counting vairable
 gap_time_count = 10 # Define gap time between each traffic signs were detected
 sign_start_time = time.time() 
 speed_limit_signs = [] # Buffer to storage traffic signs were detected. Will be reset if in gap time it does not detect any signs
-max_speed_limited = [50] # Buffer to storage maximum speed, first define 50kmh
+max_speed_limited = [50, 50] # Buffer to storage maximum speed, first define 50kmh
 min_speed_limited = [0] # Buffer to storage minimum speed, first define 0kmh
 count_threh = 4 # Variable to define number of detect to recognize
 # Global variable define================================
